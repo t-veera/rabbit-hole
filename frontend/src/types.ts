@@ -179,6 +179,23 @@ export interface Notification {
   new_count: number;
 }
 
+export type SettingSource = "settings" | "env" | "unset";
+
+export interface AppSettings {
+  anthropic_api_key_set: boolean;
+  anthropic_api_key_source: SettingSource;
+  unpaywall_email: string | null;
+  unpaywall_email_source: SettingSource;
+  openalex_mailto: string | null;
+  openalex_mailto_source: SettingSource;
+  ncbi_api_key_set: boolean;
+  ncbi_api_key_source: SettingSource;
+  semantic_scholar_api_key_set: boolean;
+  semantic_scholar_api_key_source: SettingSource;
+  core_api_key_set: boolean;
+  core_api_key_source: SettingSource;
+}
+
 export const KNOWN_FIELDS = [
   "biology",
   "medicine",

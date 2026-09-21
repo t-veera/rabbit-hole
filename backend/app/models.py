@@ -306,3 +306,21 @@ class SeenLog(Base):
     id = _uuid_pk()
     topic_id = Column(UUID(as_uuid=True), ForeignKey("topics.id", ondelete="CASCADE"), nullable=False, unique=True)
     last_seen_at = Column(DateTime(timezone=True), default=_now, nullable=False)
+
+
+class AppSettings(Base):
+    """User-editable API keys/config (Settings page) — a single row, since this
+    is a single-user app. Overlays app/config.py's .env-derived defaults (see
+    services/settings_store.py) rather than replacing them, so a fresh install
+    with no keys entered yet still runs on whatever's in .env."""
+
+    __tablename__ = "app_settings"
+
+    id = Column(Integer, primary_key=True, default=1)
+    anthropic_api_key = Column(String, nullable=True)
+    unpaywall_email = Column(String, nullable=True)
+    openalex_mailto = Column(String, nullable=True)
+    ncbi_api_key = Column(String, nullable=True)
+    semantic_scholar_api_key = Column(String, nullable=True)
+    core_api_key = Column(String, nullable=True)
+    updated_at = Column(DateTime(timezone=True), default=_now, onupdate=_now, nullable=False)

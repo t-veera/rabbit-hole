@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: rabbithole
+          POSTGRES_PASSWORD: rabbithole
+          POSTGRES_DB: rabbithole
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rabbithole"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      DATABASE_URL: postgresql+psycopg://rabbithole:rabbithole@localhost:5432/rabbithole
+      UNPAYWALL_EMAIL: ci@example.com
+      CORS_ORIGINS: http://localhost:5173
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run migrations against a real Postgres
+        run: alembic upgrade head
+
+      - name: Start the API and check it actually comes up
+        run: |
+          uvicorn app.main:app --port 8420 &
+          server_pid=$!
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:8420/api/health > /dev/null; then
+              echo "API is up"
+              kill $server_pid
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API never came up"
+          kill $server_pid || true
+          exit 1
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check and build
+        run: npm run build

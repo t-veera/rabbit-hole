@@ -14,7 +14,7 @@ import logging
 
 import httpx
 
-from app.config import get_settings
+from app.services.settings_store import effective_settings
 
 _BASE_URL = "https://api.unpaywall.org/v2"
 _logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ def check_oa(doi: str) -> dict | None:
     every candidate in this order (see services/fulltext.py) is what
     actually gets a paper embeddable, not just correctly licensed.
     """
-    settings = get_settings()
+    settings = effective_settings()
     try:
         resp = httpx.get(f"{_BASE_URL}/{doi}", params={"email": settings.unpaywall_email}, timeout=10)
         if resp.status_code == 404:

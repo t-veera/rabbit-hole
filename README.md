@@ -32,28 +32,49 @@ Picked non-default ports because this machine already has other projects on
 
 ## First-time setup
 
+Needs [Docker](https://www.docker.com/products/docker-desktop/), Python 3.11+,
+and Node 20+ installed first.
+
+### macOS / Linux
+
+```bash
+./setup.sh
+```
+
+### Windows (PowerShell)
+
+```powershell
+.\setup.ps1
+```
+
+### Manual setup (any OS, if you'd rather not run a script)
+
 ```bash
 # 1. Start Postgres
-docker-compose up -d
+docker compose up -d          # or: docker-compose up -d
 
 # 2. Backend
 cd backend
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-cp ../.env.example .env   # edit ANTHROPIC_API_KEY, UNPAYWALL_EMAIL, OPENALEX_MAILTO
-.venv/bin/python -m alembic upgrade head
+python3 -m venv .venv          # Windows: python -m venv .venv
+.venv/bin/pip install -r requirements.txt      # Windows: .venv\Scripts\pip.exe install -r requirements.txt
+cp ../.env.example .env        # Windows: copy ..\.env.example .env
+.venv/bin/python -m alembic upgrade head        # Windows: .venv\Scripts\alembic.exe upgrade head
 
 # 3. Frontend
 cd ../frontend
 npm install
-cp .env.example .env
+cp .env.example .env           # Windows: copy .env.example .env
 ```
+
+API keys (`ANTHROPIC_API_KEY`, `UNPAYWALL_EMAIL`, etc.) can be left blank in
+`.env` and set later from the app's **Settings** page instead — see below.
 
 ## Running
 
 ```bash
 # Terminal 1
 cd backend && .venv/bin/uvicorn app.main:app --reload --port 8420
+# Windows: .venv\Scripts\uvicorn.exe app.main:app --reload --port 8420
 
 # Terminal 2
 cd frontend && npm run dev
@@ -61,18 +82,25 @@ cd frontend && npm run dev
 
 Open http://localhost:5173.
 
-## API keys (`backend/.env`)
+## API keys
+
+Easiest path: leave `backend/.env` blank and add these from the app's
+**Settings** page instead — they save to the database and take effect
+immediately, no restart needed. `.env` still works too (e.g. for a
+non-interactive/Docker deploy) and acts as the fallback default whenever a
+key isn't set in Settings.
 
 Only one is a real secret — the rest are free/no-signup, required only by
 usage terms or for higher rate limits:
 
-| Var | Needed for | Required? |
+| Var / Settings field | Needed for | Required? |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | LLM keyword translation | Real key needed for good translation. Without it, translation falls back to a naive passthrough — app still runs, just dumber search terms. |
-| `DATABASE_URL` | Postgres connection | Pre-filled to match `docker-compose.yml`. |
+| `DATABASE_URL` | Postgres connection | Pre-filled to match `docker-compose.yml`. Not exposed in Settings — it's infrastructure config, not a per-user key. |
 | `UNPAYWALL_EMAIL` | Open-access lookup | Just an email, no signup — but **must be real**: Unpaywall hard-rejects the placeholder `you@example.com` (422 error) and every OA lookup silently fails until you swap it in, degrading full-text links to weaker fallbacks. |
 | `OPENALEX_MAILTO` | Faster OpenAlex responses | Just an email, no signup — gets the "polite pool". |
 | `NCBI_API_KEY` | PubMed | Optional — raises rate limit 3→10 req/s. |
+| `CORE_API_KEY` | Extra full-text PDF coverage | Optional — free key from core.ac.uk; finds institutional-repository copies Unpaywall/OpenAlex miss. |
 | `SEMANTIC_SCHOLAR_API_KEY` | (unused currently) | Optional, reserved for future use. |
 
 arXiv, OpenAlex, bioRxiv/medRxiv, Unpaywall, PubMed, and RSS all work with

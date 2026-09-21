@@ -8,14 +8,14 @@ from xml.etree import ElementTree
 
 import httpx
 
-from app.config import get_settings
+from app.services.settings_store import effective_settings
 from app.services.sources.base import NormalizedPaper
 
 _BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 
 
 def _api_key_params() -> dict:
-    settings = get_settings()
+    settings = effective_settings()
     return {"api_key": settings.ncbi_api_key} if settings.ncbi_api_key else {}
 
 

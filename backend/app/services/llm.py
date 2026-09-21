@@ -8,8 +8,8 @@ dumber translation step) — see .env.example for how to add a real key.
 import json
 import re
 
-from app.config import get_settings
 from app.field_routing import KNOWN_FIELDS
+from app.services.settings_store import effective_settings
 
 TRANSLATE_SYSTEM_PROMPT = f"""You translate a plain-language research interest into:
 1. A real academic search query (the kind of terms a researcher would type into PubMed/arXiv/OpenAlex) — expand jargon, add synonyms, keep it concise.
@@ -29,7 +29,7 @@ def _naive_translate(raw_query: str) -> tuple[str, str]:
 
 def translate_query(raw_query: str) -> tuple[str, str]:
     """Returns (translated_query, inferred_field)."""
-    settings = get_settings()
+    settings = effective_settings()
     if not settings.anthropic_api_key:
         return _naive_translate(raw_query)
 

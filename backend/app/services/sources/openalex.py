@@ -12,14 +12,14 @@ from datetime import datetime
 
 import httpx
 
-from app.config import get_settings
+from app.services.settings_store import effective_settings
 from app.services.sources.base import NormalizedPaper
 
 _BASE_URL = "https://api.openalex.org"
 
 
 def _mailto_params() -> dict:
-    settings = get_settings()
+    settings = effective_settings()
     return {"mailto": settings.openalex_mailto} if settings.openalex_mailto else {}
 
 

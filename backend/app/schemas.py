@@ -314,6 +314,43 @@ class GraphOut(BaseModel):
 # --- Notifications ---
 
 
+# --- App settings (Settings page API keys) ---
+
+
+class AppSettingsIn(BaseModel):
+    """All optional and unset-vs-empty-string aware (see routers/settings.py):
+    a field left out of the request body leaves that key untouched; an empty
+    string clears it back to whatever's in .env."""
+
+    anthropic_api_key: str | None = None
+    unpaywall_email: str | None = None
+    openalex_mailto: str | None = None
+    ncbi_api_key: str | None = None
+    semantic_scholar_api_key: str | None = None
+    core_api_key: str | None = None
+
+
+class AppSettingsOut(BaseModel):
+    """Secrets are never echoed back in full once saved — only whether one is
+    set, and whether it's coming from this app's Settings page or from
+    .env/the environment. unpaywall_email/openalex_mailto aren't secrets
+    (just contact addresses Unpaywall/OpenAlex ask for), so those show in
+    full — the user needs to see them to edit them."""
+
+    anthropic_api_key_set: bool
+    anthropic_api_key_source: str
+    unpaywall_email: str
+    unpaywall_email_source: str
+    openalex_mailto: str | None
+    openalex_mailto_source: str
+    ncbi_api_key_set: bool
+    ncbi_api_key_source: str
+    semantic_scholar_api_key_set: bool
+    semantic_scholar_api_key_source: str
+    core_api_key_set: bool
+    core_api_key_source: str
+
+
 class NotificationOut(BaseModel):
     topic_id: uuid.UUID
     topic_query: str

@@ -9,13 +9,13 @@ without CORE_API_KEY configured rather than failing the whole lookup chain.
 
 import httpx
 
-from app.config import get_settings
+from app.services.settings_store import effective_settings
 
 _BASE_URL = "https://api.core.ac.uk/v3/search/works"
 
 
 def find_pdf_urls(doi: str) -> list[str]:
-    settings = get_settings()
+    settings = effective_settings()
     if not settings.core_api_key:
         return []
 

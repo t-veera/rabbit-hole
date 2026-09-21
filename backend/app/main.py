@@ -18,6 +18,7 @@ from app.routers import (
     papers,
     researchers,
     search,
+    settings as settings_router,
     sources,
     topics,
 )
@@ -86,6 +87,7 @@ app.include_router(lists.router)
 app.include_router(notes.router)
 app.include_router(graph.router)
 app.include_router(library.router)
+app.include_router(settings_router.router)
 
 
 @app.get("/api/health")
