@@ -1,0 +1,63 @@
+{
+  "name": "rabbit-hole-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Rabbit Hole desktop shell",
+  "main": "main.js",
+  "author": {
+    "name": "Twisha Veera",
+    "email": "25585096+t-veera@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/t-veera/rabbit-hole",
+  "scripts": {
+    "build-backend": "python3 build_backend.py",
+    "start": "electron .",
+    "dist-win": "electron-builder --win",
+    "dist-linux": "electron-builder --linux",
+    "dist-mac": "electron-builder --mac",
+    "dist-all": "electron-builder -mwl"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "allowScripts": {
+    "electron@33.4.11": true
+  },
+  "build": {
+    "appId": "com.rabbithole.app",
+    "productName": "Rabbit Hole",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/dist/rabbit-hole-backend",
+        "to": "rabbit-hole-backend"
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] },
+        { "target": "deb", "arch": ["x64"] }
+      ],
+      "category": "Office"
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] },
+        { "target": "zip", "arch": ["x64", "arm64"] }
+      ]
+    }
+  }
+}

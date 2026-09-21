@@ -1,0 +1,9 @@
+# Additional dependencies for the packaged desktop build only (see
+# app/desktop_main.py and desktop/). Not needed for the normal dev flow,
+# which uses the docker-compose Postgres instead — kept separate so a
+# regular dev install doesn't pull in pgserver's ~30MB of bundled Postgres
+# binaries for no reason.
+-r requirements.txt
+pgserver>=0.1.4
+platformdirs>=4.0
+pyinstaller>=6.11

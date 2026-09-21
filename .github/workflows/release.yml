@@ -1,0 +1,117 @@
+name: Build & Release Desktop App
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install backend + packaging dependencies
+        run: pip install -r backend/requirements-desktop.txt
+      - name: Build backend (bundled Postgres via pgserver + PyInstaller)
+        run: python desktop/build_backend.py
+      - name: Install desktop shell dependencies
+        run: npm ci
+        working-directory: desktop
+      - name: Build Windows installer
+        run: npm run dist-win
+        working-directory: desktop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: desktop/release/*.exe
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install backend + packaging dependencies
+        run: pip install -r backend/requirements-desktop.txt
+      - name: Build backend (bundled Postgres via pgserver + PyInstaller)
+        run: python desktop/build_backend.py
+      - name: Install desktop shell dependencies
+        run: npm ci
+        working-directory: desktop
+      - name: Build Linux packages
+        run: npm run dist-linux
+        working-directory: desktop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: |
+            desktop/release/*.AppImage
+            desktop/release/*.deb
+
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install backend + packaging dependencies
+        run: pip install -r backend/requirements-desktop.txt
+      - name: Build backend (bundled Postgres via pgserver + PyInstaller)
+        run: python desktop/build_backend.py
+      - name: Install desktop shell dependencies
+        run: npm ci
+        working-directory: desktop
+      - name: Build macOS package
+        run: npm run dist-mac
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-build
+          path: |
+            desktop/release/*.dmg
+            desktop/release/*.zip
+
+  release:
+    needs: [build-windows, build-linux, build-mac]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Rabbit Hole ${{ github.ref_name }}"
+          body: |
+            ## Downloads
+
+            | Platform | File |
+            |---|---|
+            | Windows | `.exe` installer, or the portable `.exe` (no install needed) |
+            | Linux | `.AppImage` (runs on any distro, no install) or `.deb` |
+            | macOS | `.dmg` (Apple Silicon or Intel) or `.zip` |
+
+            No Docker, Python, or Node required — everything (including a local
+            database) is bundled inside.
+
+            **macOS/Windows note:** these builds aren't code-signed yet, so the
+            OS will flag them on first launch. macOS: right-click the app ->
+            Open. Windows: click "More info" -> "Run anyway" on the
+            SmartScreen prompt.
+          files: artifacts/**/*

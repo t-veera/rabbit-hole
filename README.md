@@ -25,10 +25,33 @@ own added sources, resolves open-access full text where it exists, and drops
 it all into a chronological, editorial-style feed — with highlighting,
 notes, reading lists, a citation graph, and per-topic digest scheduling.
 
-It's Phase 1 of a two-phase build: local-only and single-user today
-(Postgres in Docker, app running on your machine), with Phase 2 aimed at
-Dockerizing the app itself for always-on self-hosting (e.g. a Synology box),
-with no database migration required to get there.
+It's Phase 1 of a two-phase build: local-only and single-user today, with
+Phase 2 aimed at always-on self-hosting (e.g. a Synology box). Two ways to
+run it, covered below: a **desktop app** (download and run — no Docker,
+Python, or Node needed) or **from source** (the original dev flow, still
+there for anyone who wants to hack on it).
+
+## Download
+
+The desktop app bundles everything — including a local database — inside
+one installer, for people who just want to use the app rather than develop
+it. Grab the latest build for your OS from
+**[Releases](https://github.com/t-veera/rabbit-hole/releases)**:
+
+| Platform | File |
+|---|---|
+| Windows | `.exe` installer, or the portable `.exe` (no install needed) |
+| Linux | `.AppImage` (runs on any distro, no install) or `.deb` |
+| macOS | `.dmg` (Apple Silicon or Intel) |
+
+These builds aren't code-signed yet, so the OS will flag them once on first
+launch — that's expected, not a sign anything's wrong: **macOS** — right-click
+the app → Open. **Windows** — click "More info" → "Run anyway" on the
+SmartScreen prompt.
+
+The rest of this README (Getting Started onward) covers running **from
+source** instead — for development, or if you'd rather not use a prebuilt
+binary.
 
 #### 📝 A note on how this was built
 
@@ -44,6 +67,7 @@ for someone to discover in the commit history.
 <details>
 <summary>Click to expand</summary>
 
+- [Download](#download)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
@@ -238,8 +262,13 @@ backend/app/
 frontend/src/
   pages/                      — one per route
   components/                 — ItemCard, ItemReader, Highlighter, Graph pieces, etc.
-.github/workflows/ci.yml       — migrations + live health check (backend), typecheck + build (frontend)
-docker-compose.yml             — Postgres only (Phase 1); app runs locally
+desktop/                        — Electron shell for the packaged app (see desktop/README.md)
+  main.js                       — spawns the packaged backend, opens the window
+  build_backend.py              — bundles backend + a local Postgres into one executable (PyInstaller)
+.github/workflows/
+  ci.yml                        — migrations + live health check (backend), typecheck + build (frontend)
+  release.yml                   — builds installers for Windows/Linux/macOS on a version tag, publishes a GitHub Release
+docker-compose.yml             — Postgres only (Phase 1 dev flow); app runs locally
 backend/Dockerfile              — ready for Phase 2, not part of the local dev flow yet
 ```
 
