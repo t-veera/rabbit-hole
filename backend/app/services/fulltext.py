@@ -91,6 +91,22 @@ def _citation_pdf_url(html_bytes: bytes, base_url: str) -> str | None:
     return None
 
 
+_EMBEDDED_PDF_ASSET_RE = re.compile(rb"""src=["']([^"']+\.pdf[^"']*)["']""", re.IGNORECASE)
+
+
+def _embedded_pdf_asset_url(html_bytes: bytes, base_url: str) -> str | None:
+    """Some publishers' citation_pdf_url doesn't point at the PDF bytes
+    directly — it points at their own in-house PDF-viewer page (still HTML,
+    not application/pdf), which loads the real file via a plain `src="...
+    .pdf"` reference inside that page (confirmed: ELS Publishing, the
+    "Law Ethics & Technology" journal). One more hop past citation_pdf_url
+    catches this without special-casing any one publisher's viewer."""
+    match = _EMBEDDED_PDF_ASSET_RE.search(html_bytes)
+    if not match:
+        return None
+    return str(httpx.URL(base_url).join(match.group(1).decode()))
+
+
 def _try_url(url: str, _from_pure_fallback: bool = False) -> bytes | None:
     try:
         resp = httpx.get(url, follow_redirects=True, timeout=60, headers=_HEADERS)
@@ -106,6 +122,9 @@ def _try_url(url: str, _from_pure_fallback: bool = False) -> bytes | None:
         pdf_url = _citation_pdf_url(resp.content, str(resp.url))
         if pdf_url and pdf_url != url:
             return _try_url(pdf_url)
+        asset_url = _embedded_pdf_asset_url(resp.content, str(resp.url))
+        if asset_url and asset_url != url:
+            return _try_url(asset_url)
 
     return None if _from_pure_fallback else _try_pure_fallbacks(url)
 
@@ -230,14 +249,22 @@ def oa_candidates(paper: Paper) -> list[str]:
 
 def resolve_fulltext(db: Session, paper: Paper, refresh: bool = False) -> dict:
     """Fetches this paper's full text and returns it, cached after the first
-    successful fetch. Tries three things in order, cheapest/most-reliable
-    first — shared by the per-paper API route (routers/papers.py) and the
+    successful fetch. Tries these in order, cheapest/most-reliable first —
+    shared by the per-paper API route (routers/papers.py) and the
     library-wide sweep script (scripts/fulltext_sweep.py) so both report the
     exact same resolution behavior:
     1. Europe PMC's fullTextXML, if we can resolve a PMCID.
     2. Every OA copy Unpaywall knows about, preferring institutional
        repositories over publisher hosts.
     3. CORE.ac.uk — a no-op without CORE_API_KEY configured, not a failure.
+    4. The paper's own DOI landing page, via the same citation_pdf_url-
+       following logic as step 2 — Unpaywall's OA index can simply be wrong
+       for smaller/niche publishers (confirmed: a journal whose own site
+       serves the PDF from a `/open/` path, with no login or paywall,
+       that Unpaywall nonetheless reports as closed-access). Tried last,
+       not first, since it's a plain page fetch with no OA signal backing
+       it — most papers won't have anything here that steps 1-3 didn't
+       already find.
     """
     if paper.full_text and not refresh:
         return {"text": paper.full_text, "source": "cache"}
@@ -270,5 +297,20 @@ def resolve_fulltext(db: Session, paper: Paper, refresh: bool = False) -> dict:
                 paper.full_text = text
                 db.commit()
                 return {"text": text, "source": "CORE.ac.uk"}
+
+    if paper.landing_url:
+        pdf_bytes = fetch_pdf([paper.landing_url])
+        if pdf_bytes:
+            text = extract_text(pdf_bytes)
+            if text:
+                paper.full_text = text
+                # We just successfully pulled a PDF straight off the
+                # publisher's own page — that's direct proof this is
+                # actually open access, regardless of what Unpaywall's
+                # (evidently stale, for this publisher) index says.
+                paper.oa_status = True
+                paper.oa_url = paper.oa_url or paper.landing_url
+                db.commit()
+                return {"text": text, "source": "publisher page"}
 
     return {"text": None, "source": None}
