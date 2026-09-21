@@ -31,12 +31,25 @@ export default function ItemReader({ kind, id, compact }: Props) {
       .catch(() => {});
   }
 
+  function loadFullText() {
+    const fulltextPath = kind === "paper" ? `/api/papers/${id}/fulltext-text` : `/api/journalism/${id}/fulltext-text`;
+    setFullTextLoading(true);
+    api
+      .get<{ text: string | null }>(fulltextPath)
+      .then((r) => setFullText(r.text))
+      .catch(() => setFullText(null))
+      .finally(() => setFullTextLoading(false));
+  }
+
+  function refetchAfterUpload() {
+    if (kind === "paper") api.get<Paper>(`/api/papers/${id}`).then(setPaper);
+    loadFullText();
+  }
+
   useEffect(() => {
     setLoading(true);
     setFullText(null);
-    setFullTextLoading(true);
     const detailPath = kind === "paper" ? `/api/papers/${id}` : `/api/journalism/${id}`;
-    const fulltextPath = kind === "paper" ? `/api/papers/${id}/fulltext-text` : `/api/journalism/${id}/fulltext-text`;
 
     if (kind === "paper") {
       api.get<Paper>(detailPath).then(setPaper).finally(() => setLoading(false));
@@ -45,11 +58,7 @@ export default function ItemReader({ kind, id, compact }: Props) {
       api.get<Article>(detailPath).then(setArticle).finally(() => setLoading(false));
     }
 
-    api
-      .get<{ text: string | null }>(fulltextPath)
-      .then((r) => setFullText(r.text))
-      .catch(() => setFullText(null))
-      .finally(() => setFullTextLoading(false));
+    loadFullText();
   }, [kind, id]);
 
   async function addToPeople(researcherId: string) {
@@ -150,7 +159,7 @@ export default function ItemReader({ kind, id, compact }: Props) {
               : "No full text on file — the source site blocks automated fetching (common for major publishers)."}
           </p>
           <div style={{ marginTop: 10, display: "flex", gap: 10, alignItems: "center" }}>
-            {paper && <UploadPdf compact />}
+            {paper && <UploadPdf compact existingPaperId={paper.id} onUploaded={refetchAfterUpload} />}
             {paper?.oa_url && (
               <a href={paper.oa_url} target="_blank" rel="noreferrer">
                 Try the source site yourself ↗

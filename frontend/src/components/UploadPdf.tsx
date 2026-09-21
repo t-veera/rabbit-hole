@@ -8,9 +8,17 @@ type Step = "closed" | "picking" | "extracting" | "reviewing" | "saving";
 interface Props {
   /** Compact inline variant for the paper-detail fallback; full button otherwise. */
   compact?: boolean;
+  /** Set when opened from an existing paper's "no full text" fallback —
+   * attaches the upload to that exact paper instead of going through
+   * DOI-based dedup, which silently creates a disconnected duplicate paper
+   * whenever the DOI field is left blank or doesn't match. */
+  existingPaperId?: string;
+  /** Called instead of navigating away, when existingPaperId is set — the
+   * caller is already showing that paper and just needs to refresh it. */
+  onUploaded?: () => void;
 }
 
-export default function UploadPdf({ compact }: Props) {
+export default function UploadPdf({ compact, existingPaperId, onUploaded }: Props) {
   const [step, setStep] = useState<Step>("closed");
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,9 +77,14 @@ export default function UploadPdf({ compact }: Props) {
         venue: venue.trim() || null,
         doi: doi.trim() || null,
         full_text: draft.full_text,
+        attach_to_paper_id: existingPaperId || null,
       });
       reset();
-      navigate(`/papers/${paper.id}`);
+      if (existingPaperId) {
+        onUploaded?.();
+      } else {
+        navigate(`/papers/${paper.id}`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save this paper.");
       setStep("reviewing");

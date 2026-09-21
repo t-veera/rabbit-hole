@@ -70,6 +70,18 @@ def confirm_upload(payload: UploadConfirmRequest, background_tasks: BackgroundTa
     listable, highlightable, graphable, searchable, same as any other paper —
     then kicks off citation-graph enrichment in the background (DOI if present,
     else a title match against OpenAlex; see services/citation.py)."""
+    if payload.attach_to_paper_id:
+        paper = db.get(Paper, payload.attach_to_paper_id)
+        if not paper:
+            raise HTTPException(404, "Paper not found")
+        paper.full_text = payload.full_text
+        paper.doi = paper.doi or payload.doi
+        paper.venue = paper.venue or payload.venue
+        db.commit()
+        db.refresh(paper)
+        attach_reading_status(db, ItemType.paper, [paper])
+        return paper
+
     record = {
         "title": payload.title,
         "abstract": None,

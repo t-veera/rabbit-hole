@@ -207,6 +207,12 @@ class UploadConfirmRequest(BaseModel):
     venue: str | None = None
     doi: str | None = None
     full_text: str
+    # Set when "Upload PDF" was opened from an existing paper's page (its
+    # "no full text on file" fallback) — attaches full_text to that exact
+    # paper instead of going through the DOI-dedup path in _upsert_paper,
+    # which silently creates a disconnected duplicate whenever the entered
+    # DOI is blank or doesn't match (see routers/papers.py:confirm_upload).
+    attach_to_paper_id: uuid.UUID | None = None
 
 
 class SearchRunRequest(BaseModel):
