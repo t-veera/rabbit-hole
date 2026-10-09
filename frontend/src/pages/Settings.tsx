@@ -14,8 +14,8 @@ import type { AppSettings, Cadence, Source, SourceTrack, Topic } from "../types"
 import { KNOWN_FIELDS } from "../types";
 
 function sourceLabel(source: "settings" | "env" | "unset"): string {
-  if (source === "settings") return "set here";
-  if (source === "env") return "set via .env";
+  if (source === "settings") return "saved";
+  if (source === "env") return "set";
   return "not set";
 }
 
@@ -59,7 +59,7 @@ function SecretKeyRow({
           {saving ? "Saving..." : "Save"}
         </button>
         {source === "settings" && (
-          <button className="subtle" onClick={onClear} disabled={saving} title="Fall back to .env (if set)">
+          <button className="subtle" onClick={onClear} disabled={saving} title="Remove the saved value">
             Clear
           </button>
         )}
@@ -114,12 +114,29 @@ export default function Settings() {
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
   const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({});
   const [savingField, setSavingField] = useState<string | null>(null);
+  const [appSettingsError, setAppSettingsError] = useState(false);
 
   function loadAppSettings() {
-    api.get<AppSettings>("/api/settings").then(setAppSettings);
+    setAppSettingsError(false);
+    api
+      .get<AppSettings>("/api/settings")
+      .then(setAppSettings)
+      .catch(() => setAppSettingsError(true));
   }
 
   useEffect(loadAppSettings, []);
+
+  // One email covers both services that ask for one.
+  async function saveEmail(value: string) {
+    setSavingField("email");
+    try {
+      setAppSettings(
+        await api.patch<AppSettings>("/api/settings", { unpaywall_email: value, openalex_mailto: value }),
+      );
+    } finally {
+      setSavingField(null);
+    }
+  }
 
   async function saveField(field: string, value: string) {
     setSavingField(field);
@@ -213,17 +230,32 @@ export default function Settings() {
         </p>
       </div>
 
-      <h3 style={{ marginTop: 40 }}>API keys</h3>
+      <h3 style={{ marginTop: 40 }}>Your details</h3>
       <div className="page-subtitle" style={{ marginBottom: 16 }}>
-        All optional — the app runs without any of these, just with dumber search-term
-        translation and weaker full-text/rate-limit coverage. Saved here take effect
-        immediately (no restart) and override backend/.env.
+        Both optional. Without them the app still works, but finds fewer free full-text papers
+        and runs simpler searches.
       </div>
+      {!appSettings && appSettingsError && (
+        <p className="empty-state" style={{ marginBottom: 40 }}>
+          Couldn't load your details.{" "}
+          <button type="button" className="btn subtle" onClick={loadAppSettings}>
+            Try again
+          </button>
+        </p>
+      )}
       {appSettings && (
         <div className="list-grid" style={{ marginBottom: 40 }}>
+          <PlainFieldRow
+            label="Your email"
+            hint="Only sent to Unpaywall (finds free, legal copies of papers) and OpenAlex (the paper database searches run on). Both ask for a contact email so they can reach you if something goes wrong."
+            value={appSettings.unpaywall_email ?? appSettings.openalex_mailto ?? ""}
+            source={appSettings.unpaywall_email_source}
+            onSave={saveEmail}
+            saving={savingField === "email"}
+          />
           <SecretKeyRow
             label="Anthropic API key"
-            hint="Real search-term translation instead of a naive keyword pass"
+            hint="Lets Claude turn what you type into precise search terms. Get one at console.anthropic.com."
             isSet={appSettings.anthropic_api_key_set}
             source={appSettings.anthropic_api_key_source}
             draft={keyDrafts.anthropic_api_key ?? ""}
@@ -231,55 +263,6 @@ export default function Settings() {
             onSave={() => saveField("anthropic_api_key", keyDrafts.anthropic_api_key ?? "")}
             onClear={() => saveField("anthropic_api_key", "")}
             saving={savingField === "anthropic_api_key"}
-          />
-          <PlainFieldRow
-            label="Unpaywall email"
-            hint="Required by Unpaywall's usage terms — must be a real address, or every open-access lookup silently fails"
-            value={appSettings.unpaywall_email ?? ""}
-            source={appSettings.unpaywall_email_source}
-            onSave={(v) => saveField("unpaywall_email", v)}
-            saving={savingField === "unpaywall_email"}
-          />
-          <PlainFieldRow
-            label="OpenAlex contact email"
-            hint="Gets OpenAlex's faster 'polite pool' rate limit"
-            value={appSettings.openalex_mailto ?? ""}
-            source={appSettings.openalex_mailto_source}
-            onSave={(v) => saveField("openalex_mailto", v)}
-            saving={savingField === "openalex_mailto"}
-          />
-          <SecretKeyRow
-            label="NCBI API key"
-            hint="Raises PubMed's rate limit from 3 to 10 requests/sec"
-            isSet={appSettings.ncbi_api_key_set}
-            source={appSettings.ncbi_api_key_source}
-            draft={keyDrafts.ncbi_api_key ?? ""}
-            onDraftChange={(v) => setKeyDrafts((d) => ({ ...d, ncbi_api_key: v }))}
-            onSave={() => saveField("ncbi_api_key", keyDrafts.ncbi_api_key ?? "")}
-            onClear={() => saveField("ncbi_api_key", "")}
-            saving={savingField === "ncbi_api_key"}
-          />
-          <SecretKeyRow
-            label="CORE.ac.uk API key"
-            hint="Finds institutional-repository PDF copies Unpaywall/OpenAlex miss"
-            isSet={appSettings.core_api_key_set}
-            source={appSettings.core_api_key_source}
-            draft={keyDrafts.core_api_key ?? ""}
-            onDraftChange={(v) => setKeyDrafts((d) => ({ ...d, core_api_key: v }))}
-            onSave={() => saveField("core_api_key", keyDrafts.core_api_key ?? "")}
-            onClear={() => saveField("core_api_key", "")}
-            saving={savingField === "core_api_key"}
-          />
-          <SecretKeyRow
-            label="Semantic Scholar API key"
-            hint="Reserved for future use — not called by anything yet"
-            isSet={appSettings.semantic_scholar_api_key_set}
-            source={appSettings.semantic_scholar_api_key_source}
-            draft={keyDrafts.semantic_scholar_api_key ?? ""}
-            onDraftChange={(v) => setKeyDrafts((d) => ({ ...d, semantic_scholar_api_key: v }))}
-            onSave={() => saveField("semantic_scholar_api_key", keyDrafts.semantic_scholar_api_key ?? "")}
-            onClear={() => saveField("semantic_scholar_api_key", "")}
-            saving={savingField === "semantic_scholar_api_key"}
           />
         </div>
       )}

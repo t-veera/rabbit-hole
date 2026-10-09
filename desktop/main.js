@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog } = require("electron");
+const { app, BrowserWindow, dialog, Menu } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const http = require("http");
@@ -68,7 +68,33 @@ function createWindow() {
   mainWindow.loadURL(BACKEND_URL);
 }
 
+// Electron's default File/Edit/View/Window/Help menu does nothing useful
+// here, so drop it. macOS keeps a minimal one: its menu bar sits at the top
+// of the screen rather than in the window, and without the app and Edit
+// roles Cmd+Q and Cmd+C/V stop working there.
+function setMenu() {
+  if (process.platform === "darwin") {
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }]));
+  } else {
+    Menu.setApplicationMenu(null);
+  }
+}
+
+// One copy at a time: a second launch would start a second backend that
+// can't get port 8420, so hand focus to the window that's already open.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  });
+}
+
 app.whenReady().then(async () => {
+  if (!app.hasSingleInstanceLock()) return;
+  setMenu();
   startBackend();
   try {
     await waitForHealth(30000);
@@ -88,6 +114,19 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-app.on("before-quit", () => {
-  if (backendProcess) backendProcess.kill();
+// Hold the quit until the backend has exited: it stops Postgres on the way
+// out, and that needs its stdout pipe and (on Linux) the AppImage mount to
+// still be there. Quitting straight away left Postgres running. If it hangs,
+// give up after a few seconds rather than never closing.
+let backendStopped = false;
+app.on("before-quit", (event) => {
+  if (backendStopped || !backendProcess || backendProcess.exitCode !== null || backendProcess.signalCode !== null) return;
+  event.preventDefault();
+  const finish = () => {
+    backendStopped = true;
+    app.quit();
+  };
+  backendProcess.once("exit", finish);
+  setTimeout(finish, 10000);
+  backendProcess.kill();
 });

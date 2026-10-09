@@ -1,4 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8420";
+// An empty VITE_API_BASE_URL means "same origin as the page": the desktop
+// build sets it so, since there the backend serves the frontend itself.
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8420";
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const isFormData = options.body instanceof FormData;

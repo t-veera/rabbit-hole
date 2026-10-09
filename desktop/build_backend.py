@@ -14,6 +14,7 @@ package.json copies this into its own resources, see package.json's "extraResour
 """
 
 import importlib.util
+import os
 import shutil
 import subprocess
 import sys
@@ -34,7 +35,12 @@ def _add_data(src: Path, dest: str) -> str:
 def main() -> None:
     print("==> Building frontend")
     subprocess.run(["npm", "install"], cwd=FRONTEND, check=True, shell=sys.platform.startswith("win"))
-    subprocess.run(["npm", "run", "build"], cwd=FRONTEND, check=True, shell=sys.platform.startswith("win"))
+    # The packaged backend serves the frontend on the same origin, so API calls
+    # must be relative: a baked-in http://localhost:8420 is a different origin
+    # from the http://127.0.0.1:8420 page and every request gets CORS-blocked.
+    # An env var beats frontend/.env, so a dev's local .env can't leak in.
+    build_env = {**os.environ, "VITE_API_BASE_URL": ""}
+    subprocess.run(["npm", "run", "build"], cwd=FRONTEND, env=build_env, check=True, shell=sys.platform.startswith("win"))
 
     frontend_dist = FRONTEND / "dist"
     if not frontend_dist.is_dir():

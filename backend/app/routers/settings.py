@@ -12,6 +12,10 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 _SECRET_FIELDS = ["anthropic_api_key", "ncbi_api_key", "semantic_scholar_api_key", "core_api_key"]
 _PLAIN_FIELDS = ["unpaywall_email", "openalex_mailto"]
 
+# config.py's stand-in so the app boots without one. Unpaywall rejects it, so
+# report it as unset rather than as a real value the user already has.
+_UNPAYWALL_PLACEHOLDER = "you@example.com"
+
 
 def _get_or_create_row(db: Session) -> AppSettings:
     row = db.query(AppSettings).first()
@@ -37,6 +41,8 @@ def get_app_settings(db: Session = Depends(get_db)):
     for field in _PLAIN_FIELDS:
         db_value = getattr(row, field, None) if row else None
         env_value = getattr(env, field, None)
+        if field == "unpaywall_email" and env_value == _UNPAYWALL_PLACEHOLDER:
+            env_value = None
         out[field] = db_value or env_value
         out[f"{field}_source"] = "settings" if db_value else ("env" if env_value else "unset")
     return AppSettingsOut(**out)

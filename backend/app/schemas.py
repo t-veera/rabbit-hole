@@ -345,7 +345,7 @@ class AppSettingsOut(BaseModel):
 
     anthropic_api_key_set: bool
     anthropic_api_key_source: str
-    unpaywall_email: str
+    unpaywall_email: str | None
     unpaywall_email_source: str
     openalex_mailto: str | None
     openalex_mailto_source: str
